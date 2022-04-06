@@ -250,8 +250,13 @@ def _is_chinese_char(cp):
 def get_new_segment(segment): #  新增的方法 ####
     """
     输入一句话，返回一句经过处理的话: 为了支持中文全称mask，将被分开的词，将上特殊标记("#")，使得后续处理模块，能够知道哪些字是属于同一个词的。
-    :param segment: 一句话
-    :return: 一句处理过的话
+    Args:
+        segment(list): input_string list
+    Returns:
+        new_segment(list): string after process
+    example:
+        segment = ['一', '型', '糖', '尿', '病', '形', '成', '的', '原', '因', '是', '什', '么', '呢']
+        new_segment = ['一', '##型', '##糖', '##尿', '##病', '形', '##成', '的', '原', '##因', '是', '什', '##么', '呢']
     """
     seq_cws = jieba.lcut("".join(segment))
     seq_cws_dict = {x: 1 for x in seq_cws}
@@ -282,9 +287,11 @@ def get_new_segment(segment): #  新增的方法 ####
 def get_raw_instance(document,max_sequence_length): # 新增的方法
     """
     获取初步的训练实例，将整段按照max_sequence_length切分成多个部分,并以多个处理好的实例的形式返回。
-    :param document: 一整段
-    :param max_sequence_length:
-    :return: a list. each element is a sequence of text
+    Args:
+        document(list): 一整段
+        max_sequence_length(int):最大长度
+    Returns:
+        result_list(list): 相当于新的document,  安装max_sequence_length拆分的新document, each element is a sequence of text
     """
     max_sequence_length_allowed=max_sequence_length-2
     document = [seq for seq in document if len(seq)<max_sequence_length_allowed]
