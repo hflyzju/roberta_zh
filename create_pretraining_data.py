@@ -18,6 +18,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import os
 import collections
 import random
 import re
@@ -31,6 +32,9 @@ FLAGS = flags.FLAGS
 
 flags.DEFINE_string("input_file", None,
                     "Input raw text file (or comma-separated list of files).")
+
+flags.DEFINE_string("entity_file", None,
+                    "额外的实体词词表, 用于引入额外知识.")
 
 flags.DEFINE_string(
     "output_file", None,
@@ -616,6 +620,15 @@ def main(_):
     tf.logging.info("*** Reading from input files ***")
     for input_file in input_files:
         tf.logging.info("  %s", input_file)
+
+    if FLAGS.entity_file is not None and os.path.exists(FLAGS.entity_file):
+        with open(FLAGS.entity_file, 'r') as fr:
+            entities = []
+            for l in fr:
+                entities.add(l.strip())
+            tf.logging.info("extra entity size: %d" % (int(len(entities))))
+            if len(entities) > 0:
+                jieba.add_word(entities)
 
     rng = random.Random(FLAGS.random_seed)
     instances = create_training_instances(
