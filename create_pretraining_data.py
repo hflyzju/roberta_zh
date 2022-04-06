@@ -269,6 +269,7 @@ def get_new_segment(segment): #  新增的方法 ####
             continue
 
         has_add = False
+        # 这里相当于只处理实体长度<=3的实体词，没有对>3的实体词进行全词mask
         for length in range(3,0,-1):
             if i+length>len(segment):
                 continue
@@ -291,7 +292,7 @@ def get_raw_instance(document,max_sequence_length): # 新增的方法
         document(list): 一整段
         max_sequence_length(int):最大长度
     Returns:
-        result_list(list): 相当于新的document,  安装max_sequence_length拆分的新document, each element is a sequence of text
+        result_list(list): 相当于新的document,  按照max_sequence_length拆分的新document, each element is a sequence of text
     """
     max_sequence_length_allowed=max_sequence_length-2
     document = [seq for seq in document if len(seq)<max_sequence_length_allowed]
@@ -522,6 +523,7 @@ def create_masked_lm_predictions(tokens, masked_lm_prob,
         # Note that Whole Word Masking does *not* change the training code
         # at all -- we still predict each WordPiece independently, softmaxed
         # over the entire vocabulary.
+        # 因为第一个词没有##标记，在对词语进行mask时，可以将第一个词后的字添加##标记，这样来进行全词mask
         if (FLAGS.do_whole_word_mask and len(cand_indexes) >= 1 and
                 token.startswith("##")):
             cand_indexes[-1].append(i)
