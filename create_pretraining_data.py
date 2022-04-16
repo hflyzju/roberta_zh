@@ -110,7 +110,11 @@ def write_instance_to_example_files(instances, tokenizer, max_seq_length,
 
     total_written = 0
     for (inst_index, instance) in enumerate(instances):
-        input_ids = tokenizer.convert_tokens_to_ids(instance.tokens)
+        try:
+            input_ids = tokenizer.convert_tokens_to_ids(instance.tokens)
+        except:
+            print("convert_tokens_to_ids bug in instance:", str(instance))
+            import pdb;pdb.set_trace()
         input_mask = [1] * len(input_ids)
         segment_ids = list(instance.segment_ids)
         assert len(input_ids) <= max_seq_length
@@ -126,7 +130,11 @@ def write_instance_to_example_files(instances, tokenizer, max_seq_length,
         assert len(segment_ids) == max_seq_length
 
         masked_lm_positions = list(instance.masked_lm_positions)
-        masked_lm_ids = tokenizer.convert_tokens_to_ids(instance.masked_lm_labels)
+        try:
+            masked_lm_ids = tokenizer.convert_tokens_to_ids(instance.masked_lm_labels)
+        except:
+            print("convert_tokens_to_ids bug in instance:", str(instance))
+            import pdb;pdb.set_trace()
         masked_lm_weights = [1.0] * len(masked_lm_ids)
 
         while len(masked_lm_positions) < max_predictions_per_seq:
@@ -274,13 +282,14 @@ def get_new_segment(segment): #  新增的方法 ####
 
         has_add = False
         # 这里相当于只处理实体长度<=3的实体词，没有对>3的实体词进行全词mask
-        for length in range(3,0,-1):
+        for length in range(5,0,-1):
             if i+length>len(segment):
                 continue
             if ''.join(segment[i:i+length]) in seq_cws_dict:
                 new_segment.append(segment[i])
                 for l in range(1, length):
-                    new_segment.append('##' + segment[i+l])
+                    tmp = '##' + segment[i+l]
+                    new_segment.append(tmp)
                 i += length
                 has_add = True
                 break
@@ -537,6 +546,9 @@ def create_masked_lm_predictions(tokens, masked_lm_prob,
     rng.shuffle(cand_indexes)
 
     output_tokens = [t[2:] if len(re.findall('##[\u4E00-\u9FA5]', t))>0 else t for t in tokens]
+    # mask实体的时候，也可能出现  '癌抗原125' -> ['癌', '抗', '原', '125']的现象，对于数字和重恩，都支持全词mask
+    # output_tokens = [t[2:] if t.startswith("##") else t for t in tokens]
+
 
     num_to_predict = min(max_predictions_per_seq,
                          max(1, int(round(len(tokens) * masked_lm_prob))))
@@ -568,6 +580,7 @@ def create_masked_lm_predictions(tokens, masked_lm_prob,
                 # 10% of the time, keep original
                 if rng.random() < 0.5:
                     masked_token = tokens[index][2:] if len(re.findall('##[\u4E00-\u9FA5]', tokens[index]))>0 else tokens[index]
+                    # masked_token = tokens[index][2:] if tokens[index].startswith("##") else tokens[index]
                 # 10% of the time, replace with random word
                 else:
                     masked_token = vocab_words[rng.randint(0, len(vocab_words) - 1)]
@@ -625,10 +638,16 @@ def main(_):
         with open(FLAGS.entity_file, 'r') as fr:
             entities = []
             for l in fr:
-                entities.add(l.strip())
+                entities.append(l.strip().split('\t')[0])
             tf.logging.info("extra entity size: %d" % (int(len(entities))))
             if len(entities) > 0:
-                jieba.add_word(entities)
+                for entity in entities:
+                    if entity:
+                        if not len(re.findall('[a-zA-Z1234567890]', entity))>0:
+                            jieba.add_word(entity)
+                        else:
+                            # 实体包含中英文的时候，可能重新分词后，导致有些词不在tokenizer中报错
+                            tf.logging.info("包含英文或者数字，暂时去掉, entity:" + entity)
 
     rng = random.Random(FLAGS.random_seed)
     instances = create_training_instances(
